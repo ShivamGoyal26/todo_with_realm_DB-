@@ -1,111 +1,184 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
-
-import React from 'react';
-import type {Node} from 'react';
+import 'react-native-get-random-values';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
-  SafeAreaView,
-  ScrollView,
-  StatusBar,
+  View,
   StyleSheet,
   Text,
-  useColorScheme,
-  View,
+  SafeAreaView,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  FlatList,
 } from 'react-native';
+import Realm, {BSON} from 'realm';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+const appId = '';
+const appConfig = {id: appId, timeout: 10000};
 
-const Section = ({children, title}): Node => {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-};
+const App = () => {
+  const [data, setData] = useState([]);
+  const [name, setName] = useState('shivam');
+  const [todoName, setTodoName] = useState('');
+  const [loggedIn, setLoggedIn] = useState(false);
 
-const App: () => Node = () => {
-  const isDarkMode = useColorScheme() === 'dark';
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+
+  const TaskSchema = {
+    name: "Task",
+    properties: {
+      _id: "int",
+      name: "string",
+      status: "string?",
+    },
+    primaryKey: "_id",
   };
+  
+  async function quickStart() {
+    const realm = await Realm.open({
+      path: "myrealm",
+      schema: [TaskSchema],
+    });
+  
+    // Add a couple of Tasks in a single, atomic transaction
+    let task1, task2;
+    realm.write(() => {
+      task1 = realm.create("Task", {
+        _id: 1,
+        name: "go grocery shopping",
+        status: "Open",
+      });
+  
+      task2 = realm.create("Task", {
+        _id: 2,
+        name: "go exercise",
+        status: "Open",
+      });
+      console.log(`created two tasks: ${task1.name} & ${task2.name}`);
+    });
+    // use task1 and task2
+  
+    // query realm for all instances of the "Task" type.
+    const tasks = realm.objects("Task");
+    console.log(`The lists of tasks are: ${tasks.map((task) => task.name)}`);
+  
+    // filter for all tasks with a status of "Open"
+    const openTasks = tasks.filtered("status = 'Open'");
+    console.log(
+      `The lists of open tasks are: ${openTasks.map(
+        (openTask) => openTask.name
+      )}`
+    );
+  
+    // Sort tasks by name in ascending order
+    const tasksByName = tasks.sorted("name");
+    console.log(
+      `The lists of tasks in alphabetical order are: ${tasksByName.map(
+        (taskByName) => taskByName.name
+      )}`
+    );
+  
+  
+    // Define the collection notification listener
+    function listener(tasks, changes) {
+      // Update UI in response to deleted objects
+      changes.deletions.forEach((index) => {
+        // Deleted objects cannot be accessed directly,
+        // but we can update a UI list, etc. knowing the index.
+        console.log(`A task was deleted at the ${index} index`);
+      });
+      // Update UI in response to inserted objects
+      changes.insertions.forEach((index) => {
+        let insertedTasks = tasks[index];
+        console.log(
+          `insertedTasks: ${JSON.stringify(insertedTasks, null, 2)}`
+        );
+        // ...
+      });
+      // Update UI in response to modified objects
+      // `newModifications` contains object indexes from after they were modified
+      changes.newModifications.forEach((index) => {
+        let modifiedTask = tasks[index];
+        console.log(`modifiedTask: ${JSON.stringify(modifiedTask, null, 2)}`);
+        // ...
+      });
+    }
+    // Observe collection notifications.
+    tasks.addListener(listener);
+  
+    realm.write(() => {
+      task1.status = "InProgress";
+    });
+  
+  
+    realm.write(() => {
+      // Delete the task from the realm.
+      realm.delete(task1);
+      // Discard the reference.
+      task1 = null;
+    });
+  
+  
+    // Remember to close the realm
+    realm.close();
+  }
+  quickStart().catch((error) => {
+    console.log(`An error occurred: ${error}`);
+  });
+  
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.js</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.screen}>
+        <FlatList
+          data={data}
+          keyExtractor={item => item._id.toString()}
+          renderItem={({item}) => {
+            return (
+              <View style={styles.listItem}>
+                <Text>{item.name}</Text>
+              </View>
+            );
+          }}
+        />
+        <View style={styles.fotter}>
+          <TextInput
+            placeholder="Enter your name"
+            value={todoName}
+            onChangeText={setTodoName}
+          />
+          <TouchableOpacity onPress={() => setLoggedIn(!loggedIn)}>
+            <Text>change</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  screen: {
+    flex: 1,
+    backgroundColor: 'white',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  fotter: {
+    flexDirection: 'row',
+    padding: 20,
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+  loginScreen: {
+    backgroundColor: 'green',
+    flex: 1,
   },
-  highlight: {
-    fontWeight: '700',
+  textinput: {
+    backgroundColor: 'white',
+    padding: 10,
+    width: '90%',
+    borderRadius: 5,
+  },
+  actionText: {
+    marginTop: 20,
+    fontSize: 16,
   },
 });
 

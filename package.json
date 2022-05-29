@@ -12,6 +12,7 @@
   "dependencies": {
     "react": "17.0.2",
     "react-native": "0.68.2",
+    "react-native-get-random-values": "^1.8.0",
     "realm": "^10.18.0"
   },
   "devDependencies": {
